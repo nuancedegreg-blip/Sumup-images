@@ -33,6 +33,39 @@ Exemple :
 
 `Bonde de douche extra-plate Valentin 90 mm – Réf. 82240552`
 
+## Conversion automatique des images
+
+Le dépôt ne se contente pas de conserver les URL d’images d’origine. Il essaie de produire des images **réellement exploitables par SumUp**.
+
+Le traitement prévu est le suivant :
+
+1. récupération de l’image produit Leroy Merlin ;
+2. si l’URL d’origine est exploitable, téléchargement de l’image ;
+3. si nécessaire, recherche d’une autre source image correspondant à la même référence Leroy Merlin ;
+4. conversion de l’image avec **FFmpeg** vers un fichier **JPG standard** compatible avec SumUp ;
+5. redimensionnement/compression pour éviter des fichiers inutilement lourds ;
+6. enregistrement de l’image convertie dans le dépôt GitHub ;
+7. création d’une URL GitHub directe vers le JPG ;
+8. remplacement de l’ancienne URL image dans le CSV SumUp par cette nouvelle URL ;
+9. contrôle des échecs afin de ne pas conserver volontairement une URL cassée.
+
+Les images converties sont stockées principalement dans :
+
+- `catalog_images/` pour l’automatisation du catalogue maître ;
+- `images/` pour le workflow historique de conversion d’images.
+
+### Formats problématiques
+
+Certaines images Leroy Merlin peuvent être fournies sous des formats ou URL mal acceptés par SumUp, notamment des URL Marketplace ou des fichiers de type **AVIF/WebP**.
+
+Le rôle de la conversion est donc de transformer autant que possible ces images en **JPG classique accessible publiquement**, beaucoup plus fiable pour l’import SumUp.
+
+### En cas d’échec
+
+Si aucune image exploitable ne peut être récupérée pour une référence, l’article peut rester dans le catalogue avec son **nom et sa référence**, mais il ne faut pas remplacer volontairement l’image par une URL cassée.
+
+L’objectif reste d’avoir une photo sur **le maximum d’articles possible**, puis de contrôler le taux réel d’images valides avant l’import final dans SumUp.
+
 ## Prestations
 
 Les prestations sont séparées en trois familles :
@@ -92,13 +125,17 @@ Rapport de contrôle du catalogue.
 
 ### `catalog_images/`
 
-Images hébergées utilisées pour les articles lorsque nécessaire.
+Images JPG converties et hébergées utilisées pour les articles lorsque nécessaire.
+
+### `images/`
+
+Images JPG générées par le workflow historique de conversion.
 
 ## Scripts
 
 ### `auto_import.py`
 
-Recherche et enrichit les références Leroy Merlin, récupère les informations produit, contrôle les vendeurs et prépare les images.
+Recherche et enrichit les références Leroy Merlin, récupère les informations produit, contrôle les vendeurs, télécharge les images et peut les convertir/héberger pour les rendre utilisables par SumUp.
 
 ### `sumup_devis_mode.py`
 
@@ -110,7 +147,7 @@ Génère le catalogue des prestations artisan et les lignes de barèmes Leroy Me
 
 ### `convert_sumup.py`
 
-Convertit et héberge les images nécessaires au format compatible avec l’import SumUp.
+Script dédié à la récupération, conversion en JPG, redimensionnement et hébergement des images afin de produire des URL compatibles avec l’import SumUp.
 
 ## GitHub Actions
 
@@ -121,11 +158,15 @@ Le workflow principal est :
 Il exécute automatiquement :
 
 1. recherche et enrichissement des produits Leroy Merlin ;
-2. optimisation des produits pour SumUp ;
-3. génération du catalogue prestations ;
-4. sauvegarde des fichiers générés dans le dépôt.
+2. récupération et traitement des images produit ;
+3. conversion/hébergement des images lorsque nécessaire ;
+4. optimisation des produits pour SumUp ;
+5. génération du catalogue prestations ;
+6. sauvegarde des fichiers et images générés dans le dépôt.
 
-Il est également programmé pour se relancer régulièrement afin d’enrichir progressivement le catalogue.
+Un second workflow historique, `Convert SumUp images`, est consacré à la conversion des images du catalogue existant.
+
+Les workflows sont programmés pour se relancer régulièrement afin d’enrichir progressivement le catalogue et corriger les images manquantes ou incompatibles.
 
 ## Avant import dans SumUp
 
@@ -136,7 +177,8 @@ Ne pas importer un fichier tant que les contrôles suivants ne sont pas validés
 - prix article à `0,00 €` ;
 - TVA article vide ;
 - catégories correctes ;
-- images exploitables ;
+- images réellement accessibles et compatibles ;
+- absence d’URL image cassées ;
 - prestations Leroy au prix HT uniquement ;
 - fichier CSV bien compatible avec le modèle SumUp.
 
