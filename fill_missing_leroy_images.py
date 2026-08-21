@@ -15,7 +15,9 @@ FINAL = Path('Cat1_SumUp_FINAL.csv')
 MAP = Path('verified_image_map.csv')
 VERIFIED = Path('verified_leroy_images.csv')
 AUDIT = Path('verified_leroy_images_audit.csv')
+STATE = Path('verified_leroy_images_state.json')
 REQUEST_DELAY = float(os.environ.get('REQUEST_DELAY', '0.05'))
+BATCH_SIZE = int(os.environ.get('BATCH_SIZE', '100'))
 
 S = requests.Session()
 S.headers.update({
@@ -25,10 +27,10 @@ S.headers.update({
 })
 
 
-def get(url, timeout=30):
+def get(url, timeout=30, stream=False):
     for attempt in range(4):
         try:
-            r = S.get(url, timeout=timeout, allow_redirects=True)
+            r = S.get(url, timeout=timeout, allow_redirects=True, stream=stream)
             if r.status_code == 200:
                 return r
         except Exception:
@@ -75,6 +77,25 @@ def product_page(pid):
         if rr and pid in rr.url:
             return rr.url, rr
     return None, None
+
+
+def image_url_really_opens(image_url):
+    host = (urlparse(image_url).hostname or '').lower()
+    if host != 'media.adeo.com' and not host.endswith('.media.adeo.com'):
+        return False
+    r = get(image_url, timeout=25, stream=True)
+    if not r:
+        return False
+    try:
+        ctype = (r.headers.get('content-type') or '').lower()
+        if not ctype.startswith('image/'):
+            return False
+        chunk = next(r.iter_content(chunk_size=512), b'')
+        return len(chunk) >= 32
+    except Exception:
+        return False
+    finally:
+        r.close()
 
 
 def exact_image(pid, url, response):
@@ -128,6 +149,8 @@ def exact_image(pid, url, response):
     host = (urlparse(image).hostname or '').lower()
     if host != 'media.adeo.com' and not host.endswith('.media.adeo.com'):
         return '', 'rejected_non_adeo_image'
+    if not image_url_really_opens(image):
+        return '', 'rejected_image_unreachable'
     return image, 'verified'
 
 
@@ -156,37 +179,80 @@ def load_map():
     return out
 
 
+def load_state():
+    if not STATE.exists():
+        return {'processed': []}
+    try:
+        obj = json.loads(STATE.read_text(encoding='utf-8'))
+        if not isinstance(obj, dict):
+            return {'processed': []}
+        return obj
+    except Exception:
+        return {'processed': []}
+
+
+def save_state(processed, completed):
+    STATE.write_text(json.dumps({
+        'processed': sorted(processed),
+        'completed': completed,
+    }, ensure_ascii=False, indent=2), encoding='utf-8')
+
+
 fields, master = read_csv(MASTER)
 image_map = load_map()
+state = load_state()
+processed = set(state.get('processed') or [])
 
-# Existing verified mappings are immediately reusable, but only blanks are filled.
+# Reuse only mappings already accepted as verified, and only on blank rows.
 pre_applied = 0
 for row in master:
     sku = (row.get('SKU') or '').strip()
     if re.fullmatch(r'LM-\d{8}', sku) and not (row.get('Image 1') or '').strip() and sku in image_map:
-        row['Image 1'] = image_map[sku]
-        pre_applied += 1
+        if image_url_really_opens(image_map[sku]):
+            row['Image 1'] = image_map[sku]
+            pre_applied += 1
 
-missing = [r for r in master if re.fullmatch(r'LM-\d{8}', (r.get('SKU') or '').strip()) and not (r.get('Image 1') or '').strip()]
-print(f'START: {len(missing)} Leroy references still missing images; {pre_applied} filled from verified map', flush=True)
+missing_all = [
+    r for r in master
+    if re.fullmatch(r'LM-\d{8}', (r.get('SKU') or '').strip())
+    and not (r.get('Image 1') or '').strip()
+]
+pending = [r for r in missing_all if (r.get('SKU') or '').strip() not in processed]
+batch = pending[:max(0, BATCH_SIZE)]
 
-audit = []
+print(
+    f'START: blank={len(missing_all)} pending={len(pending)} batch={len(batch)} '
+    f'pre_applied={pre_applied}',
+    flush=True,
+)
+
+audit_existing = []
+if AUDIT.exists():
+    try:
+        _, audit_existing = read_csv(AUDIT)
+    except Exception:
+        audit_existing = []
+
+audit_new = []
 verified_now = 0
-for i, row in enumerate(missing, 1):
+for i, row in enumerate(batch, 1):
     sku = row['SKU'].strip()
     pid = sku[3:]
     url, resp = product_page(pid)
     if not resp:
-        audit.append([sku, 'not_found', '', ''])
+        status = 'not_found'
+        img = ''
+        audit_new.append({'SKU': sku, 'Status': status, 'Product URL': '', 'Image 1': ''})
     else:
         img, status = exact_image(pid, url, resp)
         if img:
             row['Image 1'] = img
             image_map[sku] = img
             verified_now += 1
-        audit.append([sku, status, url or '', img])
-    if i % 25 == 0 or i == len(missing):
-        print(f'{i}/{len(missing)} checked | newly verified={verified_now}', flush=True)
+        audit_new.append({'SKU': sku, 'Status': status, 'Product URL': url or '', 'Image 1': img})
+    processed.add(sku)
+    if i % 10 == 0 or i == len(batch):
+        print(f'{i}/{len(batch)} checked | newly_verified={verified_now}', flush=True)
     time.sleep(REQUEST_DELAY)
 
 write_csv(MASTER, fields, master)
@@ -197,22 +263,37 @@ if FINAL.exists():
     for row in final_rows:
         sku = (row.get('SKU') or '').strip()
         if re.fullmatch(r'LM-\d{8}', sku) and not (row.get('Image 1') or '').strip() and sku in image_map:
-            row['Image 1'] = image_map[sku]
+            if image_url_really_opens(image_map[sku]):
+                row['Image 1'] = image_map[sku]
     write_csv(FINAL, f_fields, final_rows)
 
 map_rows = [{'SKU': k, 'Image 1': image_map[k]} for k in sorted(image_map)]
 for target in (MAP, VERIFIED):
     write_csv(target, ['SKU', 'Image 1'], map_rows)
 
-with AUDIT.open('w', encoding='utf-8-sig', newline='') as f:
-    w = csv.writer(f)
-    w.writerow(['SKU', 'Status', 'Product URL', 'Image 1'])
-    w.writerows(audit)
+# Keep a cumulative audit trail. For a SKU rechecked manually later, newest row is last.
+audit_fields = ['SKU', 'Status', 'Product URL', 'Image 1']
+write_csv(AUDIT, audit_fields, audit_existing + audit_new)
 
-remaining = sum(1 for r in master if re.fullmatch(r'LM-\d{8}', (r.get('SKU') or '').strip()) and not (r.get('Image 1') or '').strip())
+remaining_blank = sum(
+    1 for r in master
+    if re.fullmatch(r'LM-\d{8}', (r.get('SKU') or '').strip())
+    and not (r.get('Image 1') or '').strip()
+)
+remaining_unprocessed = sum(
+    1 for r in master
+    if re.fullmatch(r'LM-\d{8}', (r.get('SKU') or '').strip())
+    and not (r.get('Image 1') or '').strip()
+    and (r.get('SKU') or '').strip() not in processed
+)
+completed = remaining_unprocessed == 0
+save_state(processed, completed)
+
 print(json.dumps({
-    'checked': len(missing),
+    'checked_this_run': len(batch),
     'pre_applied_verified': pre_applied,
     'newly_verified': verified_now,
-    'remaining_blank': remaining,
+    'remaining_blank': remaining_blank,
+    'remaining_unprocessed': remaining_unprocessed,
+    'catalogue_finished': completed,
 }, ensure_ascii=False), flush=True)
