@@ -1,15 +1,15 @@
-name: Repair SumUp images V5
+name: Repair SumUp images V6
 
 on:
   push:
     branches: [main]
     paths:
-      - 'repair_v5_jina.py'
+      - 'repair_image_search_v6.py'
       - '.github/workflows/convert.yml'
   workflow_dispatch:
 
 concurrency:
-  group: sumup-repair-v5
+  group: sumup-repair-v6
   cancel-in-progress: true
 
 permissions:
@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 60
     env:
       IMAGE_WORKERS: '10'
-      IMAGE_TIMEOUT: '20'
+      IMAGE_TIMEOUT: '10'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,17 +34,17 @@ jobs:
           python-version: '3.12'
       - name: Install Python deps
         run: pip install requests
-      - name: Recover images through public reader and search proxy
-        run: python repair_v5_jina.py
-      - name: Commit V5 recovered images and catalog
+      - name: Recover missing images from public image search
+        run: python repair_image_search_v6.py
+      - name: Commit V6 recovered images and catalog
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add images_v3 Cat1_SumUp_FINAL.csv Catalogue_Maitre_SumUp.csv repair_v5_report.csv
+          git add images_v6 Cat1_SumUp_FINAL.csv Catalogue_Maitre_SumUp.csv repair_v6_report.csv
           if git diff --cached --quiet; then
             echo 'No changes to commit'
           else
-            git commit -m 'Repair SumUp images V5 through reader proxy'
+            git commit -m 'Repair SumUp images V6 from public image search'
             git pull --rebase origin main
             git push
           fi
