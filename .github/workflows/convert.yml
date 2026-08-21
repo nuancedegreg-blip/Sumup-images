@@ -1,15 +1,15 @@
-name: Recover SumUp images V8 digits-only
+name: Recover SumUp images V9 direct product pages
 
 on:
   push:
     branches: [main]
     paths:
-      - 'repair_browser_v8_digits.py'
+      - 'repair_direct_v9.py'
       - '.github/workflows/convert.yml'
   workflow_dispatch:
 
 concurrency:
-  group: sumup-v8-digits-only
+  group: sumup-v9-direct
   cancel-in-progress: true
 
 permissions:
@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      V8_BATCH: '10'
+      V9_BATCH: '10'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,17 +34,17 @@ jobs:
           pip install playwright
           playwright install --with-deps chromium
           sudo apt-get update && sudo apt-get install -y ffmpeg
-      - name: Search Leroy with digits-only references
-        run: python repair_browser_v8_digits.py
-      - name: Commit V8 test results
+      - name: Open exact Leroy product pages and capture product images
+        run: python repair_direct_v9.py
+      - name: Commit V9 test results
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add images_v8 Cat1_SumUp_FINAL.csv Catalogue_Maitre_SumUp.csv repair_v8_report.csv
+          git add images_v9 Cat1_SumUp_FINAL.csv Catalogue_Maitre_SumUp.csv repair_v9_report.csv
           if git diff --cached --quiet; then
             echo 'No changes to commit'
           else
-            git commit -m 'V8 test: search Leroy using digits-only references'
+            git commit -m 'V9 test: direct Leroy product pages and image capture'
             git pull --rebase origin main
             git push
           fi
