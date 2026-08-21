@@ -1,0 +1,46 @@
+name: Fill all missing Leroy images
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - fill_missing_leroy_images.py
+      - .github/workflows/fill_missing_leroy_images.yml
+
+concurrency:
+  group: fill-all-missing-leroy-images
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  fill-images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      REQUEST_DELAY: '0.05'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4
+      - name: Verify every blank Leroy reference and fill exact image
+        run: python fill_missing_leroy_images.py
+      - name: Commit verified image results
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add Catalogue_Maitre_SumUp.csv Cat1_SumUp_FINAL.csv verified_image_map.csv verified_leroy_images.csv verified_leroy_images_audit.csv
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+          else
+            git commit -m 'Fill verified Leroy Merlin product images'
+            git pull --rebase origin main
+            git push origin main
+          fi
