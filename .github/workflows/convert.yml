@@ -1,0 +1,48 @@
+name: Convert SumUp images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Cat1.csv'
+      - 'convert_sumup.py'
+      - '.github/workflows/convert.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python deps
+        run: pip install requests
+
+      - name: Convert and host images
+        run: python convert_sumup.py
+
+      - name: Commit results
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add images Cat1_SumUp_FINAL.csv conversion_report.csv
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+          else
+            git commit -m 'Generate SumUp JPEG images and final CSV'
+            git push
+          fi
