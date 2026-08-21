@@ -27,8 +27,8 @@ jobs:
       # MODE RATTRAPAGE TEMPORAIRE : priorité aux ~1400 articles existants.
       # Les nouveaux produits seront réactivés une fois ce nettoyage terminé.
       MAX_NEW: '0'
-      AUDIT_EXISTING: '200'
-      REQUEST_DELAY: '0.03'
+      AUDIT_EXISTING: '300'
+      REQUEST_DELAY: '0.02'
     steps:
       - uses: actions/checkout@v4
         with:
