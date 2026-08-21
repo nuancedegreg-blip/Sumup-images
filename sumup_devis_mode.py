@@ -20,6 +20,11 @@ RULES = [
     ('Chauffage', ['radiateur','thermostatique']),
 ]
 
+PRICE_FIELDS = [
+    'Price', 'Cost price', 'Tax rate (%)', 'Regular price (before sale)',
+    'Takeaway price', 'Takeaway tax rate'
+]
+
 def ref_from(row):
     sku = (row.get('SKU') or '').strip()
     m = re.search(r'(\d{8})$', sku)
@@ -56,10 +61,17 @@ def process(path):
             row['Category'] = category(row['Item name'])
         if DESC in row:
             row[DESC] = f'À fournir par le client - Leroy Merlin - Réf. {ref}'
-        if 'Price' in row:
-            row['Price'] = ''
-        if 'Tax rate (%)' in row:
-            row['Tax rate (%)'] = ''
+        for field in PRICE_FIELDS:
+            if field in row:
+                row[field] = ''
+        if 'Variable price? (Yes/No)' in row:
+            row['Variable price? (Yes/No)'] = 'Yes'
+        if 'Track inventory? (Yes/No)' in row:
+            row['Track inventory? (Yes/No)'] = 'No'
+        if 'Display item at Checkout? (Yes/No)' in row:
+            row['Display item at Checkout? (Yes/No)'] = 'Yes'
+        if 'Display item in Online Store? (Yes/No)' in row:
+            row['Display item in Online Store? (Yes/No)'] = 'No'
     with path.open('w', encoding='utf-8-sig', newline='') as f:
         w = csv.DictWriter(f, fieldnames=fields)
         w.writeheader(); w.writerows(rows)
