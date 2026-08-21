@@ -1,1 +1,0 @@
-Catalogue_Maitre_SumUp.csv and Cat1_SumUp_FINAL.csv must be restored to blob c35cda222b3a8c56c5ff3431cc7bd5b627bffba5 (pre-V6). images_v6 is invalid and must not be used.
