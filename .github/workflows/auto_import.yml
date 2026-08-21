@@ -1,0 +1,51 @@
+name: Auto import Leroy Merlin to SumUp
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'auto_import.py'
+      - '.github/workflows/auto_import.yml'
+  schedule:
+    - cron: '15 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      MAX_NEW: '500'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4
+
+      - name: Find and build new Leroy Merlin products
+        run: python auto_import.py
+
+      - name: Commit generated catalog
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add new_images SumUp_Nouveaux_Articles.csv auto_import_report.csv
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+          else
+            git commit -m 'Auto-generate new Leroy Merlin SumUp products'
+            git push
+          fi
