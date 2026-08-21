@@ -1,50 +1,40 @@
-name: Repair SumUp images V6
+name: Rollback invalid V6 images
 
 on:
   push:
     branches: [main]
     paths:
-      - 'repair_image_search_v6.py'
       - '.github/workflows/convert.yml'
   workflow_dispatch:
 
 concurrency:
-  group: sumup-repair-v6
+  group: sumup-v6-rollback
   cancel-in-progress: true
 
 permissions:
   contents: write
 
 jobs:
-  repair:
+  rollback:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-    env:
-      IMAGE_WORKERS: '10'
-      IMAGE_TIMEOUT: '10'
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Install Python deps
-        run: pip install requests
-      - name: Recover missing images from public image search
-        run: python repair_image_search_v6.py
-      - name: Commit V6 recovered images and catalog
+      - name: Restore clean pre-V6 catalogue
+        run: |
+          git checkout 6b7c066c964ac509d4b77fb3e2d88f25b239c6c7 -- Cat1_SumUp_FINAL.csv Catalogue_Maitre_SumUp.csv
+          rm -rf images_v6 repair_v6_report.csv
+          rm -f restore_note.tmp rollback_v6_marker.txt rollback_instruction.txt
+      - name: Commit rollback
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add images_v6 Cat1_SumUp_FINAL.csv Catalogue_Maitre_SumUp.csv repair_v6_report.csv
+          git add -A
           if git diff --cached --quiet; then
-            echo 'No changes to commit'
+            echo 'Nothing to rollback'
           else
-            git commit -m 'Repair SumUp images V6 from public image search'
+            git commit -m 'Rollback invalid V6 product images and restore clean catalogue'
             git pull --rebase origin main
             git push
           fi
