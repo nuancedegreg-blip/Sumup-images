@@ -1,48 +1,42 @@
-name: Convert SumUp images TURBO
+name: Repair missing SumUp images
 
 on:
   push:
     branches: [main]
     paths:
-      - 'Cat1.csv'
       - 'convert_sumup.py'
       - '.github/workflows/convert.yml'
   workflow_dispatch:
 
 concurrency:
-  group: sumup-turbo-existing-catalog
+  group: sumup-missing-image-repair
   cancel-in-progress: true
 
 permissions:
   contents: write
 
 jobs:
-  convert:
+  repair:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
       IMAGE_WORKERS: '24'
-      IMAGE_TIMEOUT: '10'
+      IMAGE_TIMEOUT: '8'
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
       - name: Install Python deps
         run: pip install requests
-
-      - name: Turbo convert existing 1400 images in parallel
+      - name: Repair only missing images by Leroy reference
         run: python convert_sumup.py
-
-      - name: Commit ready SumUp catalog
+      - name: Commit repaired images and master catalogue
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -50,7 +44,7 @@ jobs:
           if git diff --cached --quiet; then
             echo 'No changes to commit'
           else
-            git commit -m 'Turbo generate existing SumUp catalog with JPEG images'
+            git commit -m 'Repair missing SumUp images only'
             git pull --rebase origin main
             git push
           fi
