@@ -75,3 +75,5 @@ jobs:
             git pull --rebase origin main
             git push
           fi
+
+# manual trigger 2026-08-21 18:38 Canary time
