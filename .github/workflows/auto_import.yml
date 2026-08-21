@@ -1,10 +1,12 @@
-name: Master Leroy Merlin catalog for SumUp
+name: SumUp catalog automation
 
 on:
   push:
     branches: [main]
     paths:
       - 'auto_import.py'
+      - 'sumup_devis_mode.py'
+      - 'build_services_catalog.py'
       - '.github/workflows/auto_import.yml'
   schedule:
     - cron: '15 * * * *'
@@ -41,18 +43,24 @@ jobs:
       - name: Install dependencies
         run: pip install requests beautifulsoup4
 
-      - name: Audit, enrich and build SumUp catalogs
+      - name: Find and enrich Leroy Merlin products
         run: python auto_import.py
 
-      - name: Commit catalog outputs
+      - name: Optimize Leroy products for quote search
+        run: python sumup_devis_mode.py
+
+      - name: Build artisan services catalog
+        run: python build_services_catalog.py
+
+      - name: Commit SumUp outputs
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add catalog_images Catalogue_Maitre_SumUp.csv SumUp_Nouveaux_Articles.csv SumUp_MAJ_Articles.csv catalogue_audit_report.csv catalogue_summary.json catalogue_state.json
+          git add catalog_images Catalogue_Maitre_SumUp.csv SumUp_Nouveaux_Articles.csv SumUp_MAJ_Articles.csv SumUp_Prestations_Artisan.csv catalogue_audit_report.csv catalogue_summary.json catalogue_state.json
           if git diff --cached --quiet; then
             echo 'No changes to commit'
           else
-            git commit -m 'Update SumUp master catalog, audit and images'
+            git commit -m 'Update optimized SumUp quote catalogs'
             git pull --rebase origin main
             git push
           fi
