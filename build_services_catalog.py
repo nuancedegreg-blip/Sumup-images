@@ -150,14 +150,15 @@ def common(row, category, sku, unit):
     row['Display item in Online Store? (Yes/No)'] = 'No'
     row['Track inventory? (Yes/No)'] = 'No'
 
-# Prestations génériques : prix libre, sans TVA pré-renseignée.
+# Prestations génériques : SumUp demande un prix de base pour les articles à prix variable.
+# 1,00 € est une valeur technique ; SumUp demande le vrai prix lors de l'ajout.
 for category, name, sku, unit in SERVICES:
     row = blank_row()
     row['Item name'] = name
-    row['Price'] = ''
+    row['Price'] = '1.00'
     row['Variable price? (Yes/No)'] = 'Yes'
     common(row, category, sku, unit)
-    row[DESC] = f'Prestation de main-d’œuvre - unité : {unit} - tarif HT à adapter au chantier'
+    row[DESC] = f'Prestation de main-d’œuvre - unité : {unit} - prix libre HT à saisir au devis'
     rows.append(row)
 
 # Barème Leroy : une seule ligne par prestation, prix achat HT, aucune TVA dans le catalogue.
