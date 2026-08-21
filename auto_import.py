@@ -355,9 +355,11 @@ if lm_rows:
 else:
     batch = []
 
+print(f'AUDIT START | {len(batch)} articles existants à contrôler', flush=True)
 for i, row in enumerate(batch, 1):
     sku = row['SKU'].strip()
     pid = sku[3:]
+    print(f'ARTICLE {i}/{len(batch)} | {sku}', flush=True)
     url, resp = product_page(pid)
     if not resp:
         cnt = int(state.get('not_found', {}).get(sku, 0)) + 1
