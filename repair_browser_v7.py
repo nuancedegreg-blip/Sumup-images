@@ -4,7 +4,6 @@ import os
 import re
 import subprocess
 import tempfile
-from io import BytesIO
 from pathlib import Path
 from urllib.parse import quote_plus
 
@@ -17,7 +16,7 @@ STATE = Path('repair_v7_state.json')
 IMG_DIR = Path('images_v7')
 IMG_DIR.mkdir(exist_ok=True)
 
-BATCH = int(os.environ.get('V7_BATCH', '120'))
+BATCH = int(os.environ.get('V7_BATCH', '10'))
 MAX_ATTEMPTS = int(os.environ.get('V7_MAX_ATTEMPTS', '2'))
 REPO = os.environ.get('GITHUB_REPOSITORY', 'nuancedegreg-blip/Sumup-images')
 BRANCH = os.environ.get('GITHUB_REF_NAME', 'main') or 'main'
@@ -50,13 +49,11 @@ def save_state(state):
 
 
 def product_link_from_search(page, ref):
-    # Direct redirect to a product page.
     if '/produits/' in page.url and ref in page.url:
-        return page.url
+        return page.url.split('#', 1)[0]
 
-    # Prefer an href that literally contains the reference.
     links = page.locator('a[href*="/produits/"]')
-    count = min(links.count(), 120)
+    count = min(links.count(), 160)
     for i in range(count):
         try:
             href = links.nth(i).get_attribute('href') or ''
@@ -72,7 +69,6 @@ def product_link_from_search(page, ref):
 
 
 def image_from_product_page(page, ref):
-    # Hard validation: exact reference must exist in URL or rendered page text.
     body = ''
     try:
         body = page.locator('body').inner_text(timeout=5000)
@@ -81,11 +77,7 @@ def image_from_product_page(page, ref):
     if ref not in page.url and ref not in body:
         return ''
 
-    selectors = [
-        'meta[property="og:image"]',
-        'meta[name="twitter:image"]',
-    ]
-    for sel in selectors:
+    for sel in ('meta[property="og:image"]', 'meta[name="twitter:image"]'):
         loc = page.locator(sel)
         if loc.count():
             try:
@@ -95,9 +87,8 @@ def image_from_product_page(page, ref):
             except Exception:
                 pass
 
-    # Fallback: inspect rendered product images only.
     imgs = page.locator('img')
-    count = min(imgs.count(), 120)
+    count = min(imgs.count(), 160)
     candidates = []
     for i in range(count):
         try:
@@ -105,9 +96,7 @@ def image_from_product_page(page, ref):
             alt = imgs.nth(i).get_attribute('alt') or ''
         except Exception:
             continue
-        if not u.startswith('http'):
-            continue
-        if 'media.adeo.com' not in u:
+        if not u.startswith('http') or 'media.adeo.com' not in u:
             continue
         score = 0
         if '/media/' in u and '/marketplace/' not in u:
@@ -205,13 +194,13 @@ with sync_playwright() as p:
         image_url = ''
         hosted = ''
         try:
-            search_url = 'https://www.leroymerlin.fr/recherche?q=' + quote_plus(ref)
+            search_url = 'https://www.leroymerlin.fr/recherche/?q=' + quote_plus(ref)
             page.goto(search_url, wait_until='domcontentloaded', timeout=25000)
-            page.wait_for_timeout(1800)
+            page.wait_for_timeout(2500)
             product_url = product_link_from_search(page, ref)
             if product_url:
                 page.goto(product_url, wait_until='domcontentloaded', timeout=25000)
-                page.wait_for_timeout(1800)
+                page.wait_for_timeout(2200)
                 image_url = image_from_product_page(page, ref)
                 if image_url:
                     hosted = save_jpg(context, ref, image_url)
@@ -229,8 +218,7 @@ with sync_playwright() as p:
             status = 'error_' + type(e).__name__
 
         report.append([sku, status, ref, name, product_url, image_url, hosted, attempts[sku]])
-        if n % 10 == 0 or n == len(jobs):
-            print(f'V7 {n}/{len(jobs)} | recovered={recovered}', flush=True)
+        print(f'V7 {n}/{len(jobs)} | {sku} | {status}', flush=True)
         save_state(state)
 
     context.close()
