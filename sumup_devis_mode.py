@@ -20,6 +20,11 @@ RULES = [
     ('Chauffage', ['radiateur','thermostatique']),
 ]
 
+PRICE_TAX_FIELDS = [
+    'Price', 'Cost price', 'Tax rate (%)', 'Regular price (before sale)',
+    'Takeaway price', 'Takeaway tax rate'
+]
+
 def ref_from(row):
     sku = (row.get('SKU') or '').strip()
     m = re.search(r'(\d{8})$', sku)
@@ -35,7 +40,6 @@ def trade_category(name):
 def clean_name(name, ref):
     name = re.sub(r'\s+', ' ', name or '').strip()
     name = re.sub(r'\s+[–-]\s+Réf\.\s*\d{8}\s*$', '', name, flags=re.I)
-    # Les premiers mots restent les plus utiles dans la recherche SumUp.
     name = name[:135].rstrip(' -–|')
     return f'{name} – Réf. {ref}' if ref else name
 
@@ -63,18 +67,12 @@ def process(path):
         if DESC in row:
             row[DESC] = f'À fournir par le client - Leroy Merlin - Réf. {ref}'
 
-        # Article de repérage : un clic l'ajoute au devis sans demander un prix.
-        if 'Price' in row:
-            row['Price'] = '0.00'
-        if 'Cost price' in row:
-            row['Cost price'] = ''
-        if 'Variable price? (Yes/No)' in row:
-            row['Variable price? (Yes/No)'] = 'No'
-        if 'Tax rate (%)' in row:
-            row['Tax rate (%)'] = ''
-        for field in ('Regular price (before sale)', 'Takeaway price', 'Takeaway tax rate'):
+        # Fourniture client : aucune valeur commerciale dans SumUp.
+        for field in PRICE_TAX_FIELDS:
             if field in row:
                 row[field] = ''
+        if 'Variable price? (Yes/No)' in row:
+            row['Variable price? (Yes/No)'] = 'No'
         if 'Track inventory? (Yes/No)' in row:
             row['Track inventory? (Yes/No)'] = 'No'
         if 'Display item at Checkout? (Yes/No)' in row:
@@ -87,7 +85,7 @@ def process(path):
         writer = csv.DictWriter(f, fieldnames=fields)
         writer.writeheader()
         writer.writerows(clean_rows)
-    print(path, len(clean_rows), 'articles Leroy optimisés pour devis en un clic')
+    print(path, len(clean_rows), 'articles Leroy sans prix ni TVA, prêts pour les devis')
 
 for p in FILES:
     process(p)
