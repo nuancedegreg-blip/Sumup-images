@@ -56,10 +56,14 @@ def process(path):
             row['Category'] = category(row['Item name'])
         if DESC in row:
             row[DESC] = f'À fournir par le client - Leroy Merlin - Réf. {ref}'
+        if 'Price' in row:
+            row['Price'] = ''
+        if 'Tax rate (%)' in row:
+            row['Tax rate (%)'] = ''
     with path.open('w', encoding='utf-8-sig', newline='') as f:
         w = csv.DictWriter(f, fieldnames=fields)
         w.writeheader(); w.writerows(rows)
-    print(path, len(rows), 'articles optimisés')
+    print(path, len(rows), 'articles optimisés pour devis')
 
 for p in FILES:
     process(p)
