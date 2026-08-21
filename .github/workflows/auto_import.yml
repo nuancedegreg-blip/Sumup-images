@@ -7,7 +7,7 @@ on:
       - 'auto_import.py'
       - '.github/workflows/auto_import.yml'
   schedule:
-    - cron: '15 3 * * 1'
+    - cron: '15 3 * * *'
   workflow_dispatch:
 
 permissions:
