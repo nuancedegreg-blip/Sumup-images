@@ -1,40 +1,53 @@
-name: Rollback invalid V6 images
+name: Recover SumUp images V7 browser
 
 on:
   push:
     branches: [main]
     paths:
+      - 'repair_browser_v7.py'
       - '.github/workflows/convert.yml'
   workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'
 
 concurrency:
-  group: sumup-v6-rollback
-  cancel-in-progress: true
+  group: sumup-v7-browser
+  cancel-in-progress: false
 
 permissions:
   contents: write
 
 jobs:
-  rollback:
+  recover:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      V7_BATCH: '120'
+      V7_MAX_ATTEMPTS: '2'
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Restore clean pre-V6 catalogue
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install browser and ffmpeg
         run: |
-          git checkout 6b7c066c964ac509d4b77fb3e2d88f25b239c6c7 -- Cat1_SumUp_FINAL.csv Catalogue_Maitre_SumUp.csv
-          rm -rf images_v6 repair_v6_report.csv
-          rm -f restore_note.tmp rollback_v6_marker.txt rollback_instruction.txt
-      - name: Commit rollback
+          pip install playwright
+          playwright install --with-deps chromium
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Search Leroy by exact reference in a real browser
+        run: python repair_browser_v7.py
+      - name: Commit verified V7 images and updated catalog
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
+          git add images_v7 Cat1_SumUp_FINAL.csv Catalogue_Maitre_SumUp.csv repair_v7_report.csv repair_v7_state.json
           if git diff --cached --quiet; then
-            echo 'Nothing to rollback'
+            echo 'No changes to commit'
           else
-            git commit -m 'Rollback invalid V6 product images and restore clean catalogue'
+            git commit -m 'Recover verified SumUp images V7 from Leroy browser search'
             git pull --rebase origin main
             git push
           fi
