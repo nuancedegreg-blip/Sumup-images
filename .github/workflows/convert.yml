@@ -1,15 +1,15 @@
-name: Recover SumUp images V9 direct product pages
+name: Recover SumUp images V10 strict index
 
 on:
   push:
     branches: [main]
     paths:
-      - 'repair_direct_v9.py'
+      - 'repair_index_v10.py'
       - '.github/workflows/convert.yml'
   workflow_dispatch:
 
 concurrency:
-  group: sumup-v9-direct
+  group: sumup-v10-strict-index
   cancel-in-progress: true
 
 permissions:
@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      V9_BATCH: '10'
+      V10_BATCH: '10'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,22 +29,21 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install browser and ffmpeg
+      - name: Install dependencies
         run: |
-          pip install playwright
-          playwright install --with-deps chromium
+          pip install requests
           sudo apt-get update && sudo apt-get install -y ffmpeg
-      - name: Open exact Leroy product pages and capture product images
-        run: python repair_direct_v9.py
-      - name: Commit V9 test results
+      - name: Recover strictly matched indexed Leroy images
+        run: python repair_index_v10.py
+      - name: Commit V10 test results
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add images_v9 Cat1_SumUp_FINAL.csv Catalogue_Maitre_SumUp.csv repair_v9_report.csv
+          git add images_v10 Cat1_SumUp_FINAL.csv Catalogue_Maitre_SumUp.csv repair_v10_report.csv
           if git diff --cached --quiet; then
             echo 'No changes to commit'
           else
-            git commit -m 'V9 test: direct Leroy product pages and image capture'
+            git commit -m 'V10 strict indexed Leroy image recovery test'
             git pull --rebase origin main
             git push
           fi
