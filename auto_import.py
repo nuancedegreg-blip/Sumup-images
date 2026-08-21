@@ -34,7 +34,6 @@ BRANCH = os.environ.get('GITHUB_REF_NAME', 'main') or 'main'
 RAW_BASE = f'https://raw.githubusercontent.com/{REPO}/{BRANCH}/catalog_images'
 NOW = datetime.now(timezone.utc).isoformat(timespec='seconds')
 
-# Search families focused on building/trades. Repeated runs rotate through these terms.
 QUERIES = [
     'vis bois', 'vis placo', 'vis terrasse', 'cheville', 'scellement chimique', 'tige filetee',
     'silicone sanitaire', 'mastic acrylique', 'mousse expansive', 'colle carrelage', 'joint carrelage',
@@ -86,22 +85,19 @@ def load_state():
 
 
 def save_state(state):
-    # Keep state bounded.
     state['seen_new'] = list(dict.fromkeys(state.get('seen_new', [])))[-20000:]
     STATE.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding='utf-8')
 
 
 def get(url, timeout=35, accept_image=False):
-    last = None
     headers = {'Referer': 'https://www.leroymerlin.fr/'} if accept_image else None
     for attempt in range(4):
         try:
             r = S.get(url, timeout=timeout, allow_redirects=True, headers=headers)
             if r.status_code == 200:
                 return r
-            last = f'HTTP {r.status_code}'
-        except Exception as e:
-            last = repr(e)
+        except Exception:
+            pass
         time.sleep(0.8 * (attempt + 1))
     return None
 
@@ -212,13 +208,17 @@ def parse_product(pid, url, response):
     if product_obj:
         data['name'] = product_obj.get('name') or ''
         imgs = product_obj.get('image')
-        if isinstance(imgs, list): imgs = imgs[0] if imgs else ''
-        if isinstance(imgs, dict): imgs = imgs.get('url', '')
+        if isinstance(imgs, list):
+            imgs = imgs[0] if imgs else ''
+        if isinstance(imgs, dict):
+            imgs = imgs.get('url', '')
         data['image'] = str(imgs or '')
         offers = product_obj.get('offers') or {}
-        if isinstance(offers, list): offers = offers[0] if offers else {}
+        if isinstance(offers, list):
+            offers = offers[0] if offers else {}
         seller = offers.get('seller') or {}
-        if isinstance(seller, dict): seller = seller.get('name', '')
+        if isinstance(seller, dict):
+            seller = seller.get('name', '')
         data['seller'] = str(seller or '')
         data['price'] = offers.get('price') or offers.get('lowPrice') or ''
         data['description'] = product_obj.get('description') or ''
@@ -226,8 +226,10 @@ def parse_product(pid, url, response):
 
     ogt = soup.find('meta', property='og:title')
     ogi = soup.find('meta', property='og:image')
-    if not data.get('name') and ogt: data['name'] = ogt.get('content', '')
-    if not data.get('image') and ogi: data['image'] = ogi.get('content', '')
+    if not data.get('name') and ogt:
+        data['name'] = ogt.get('content', '')
+    if not data.get('image') and ogi:
+        data['image'] = ogi.get('content', '')
 
     page_text = soup.get_text(' ', strip=True)
     page_lower = page_text.lower()
@@ -245,12 +247,12 @@ def parse_product(pid, url, response):
 
     if not data['name']:
         return None, 'missing_name'
-    if not data['image']:
-        return None, 'missing_image'
-    return data, 'ok'
+    return data, 'ok' if data['image'] else 'ok_no_image'
 
 
 def host_jpg(pid, image_url):
+    if not image_url:
+        return ''
     out = IMG_DIR / f'LM-{pid}.jpg'
     public = f'{RAW_BASE}/{out.name}'
     if out.exists() and out.stat().st_size > 800:
@@ -298,7 +300,6 @@ def build_new_row(fields, info, image):
 
 def update_existing_row(row, info, image):
     before = dict(row)
-    # Preserve SumUp IDs, inventory, barcode and user settings. Only improve safe catalog fields.
     row['Item name'] = info['name'] or row.get('Item name', '')
     if info['price']:
         row['Price'] = info['price']
@@ -319,12 +320,10 @@ def update_existing_row(row, info, image):
 def write_csv(path, fields, rows):
     with path.open('w', encoding='utf-8-sig', newline='') as f:
         w = csv.DictWriter(f, fieldnames=fields)
-        w.writeheader(); w.writerows(rows)
+        w.writeheader()
+        w.writerows(rows)
 
 
-# -----------------------------
-# LOAD + DEDUPE CATALOG
-# -----------------------------
 state = load_state()
 with BASE_CATALOG.open('r', encoding='utf-8-sig', newline='') as f:
     reader = csv.DictReader(f)
@@ -348,9 +347,6 @@ report = []
 updated_rows = []
 new_rows = []
 
-# -----------------------------
-# ROTATING AUDIT OF EXISTING LM SKUS
-# -----------------------------
 lm_rows = [r for r in master_rows if re.fullmatch(r'LM-\d{8}', (r.get('SKU') or '').strip())]
 if lm_rows:
     cursor = int(state.get('audit_cursor', 0)) % len(lm_rows)
@@ -373,20 +369,17 @@ for i, row in enumerate(batch, 1):
         report.append([NOW, sku, 'existing', status, '', url or '', ''])
         continue
     state.setdefault('not_found', {}).pop(sku, None)
-    image = host_jpg(pid, info['image'])
+    image = host_jpg(pid, info.get('image', ''))
     changes = update_existing_row(row, info, image)
     if changes:
         updated_rows.append(dict(row))
         report.append([NOW, sku, 'existing', 'updated', ';'.join(changes), url, image])
     else:
-        report.append([NOW, sku, 'existing', 'unchanged', '', url, image])
+        report.append([NOW, sku, 'existing', 'unchanged', status, url, image])
     if i % 25 == 0:
         print(f'AUDIT {i}/{len(batch)} | updates={len(updated_rows)}', flush=True)
     time.sleep(REQUEST_DELAY)
 
-# -----------------------------
-# DISCOVER NEW LEROY MERLIN PRODUCTS
-# -----------------------------
 seen_new = set(state.get('seen_new', []))
 query_cursor = int(state.get('query_cursor', 0)) % len(QUERIES)
 ordered_queries = [QUERIES[(query_cursor + i) % len(QUERIES)] for i in range(len(QUERIES))]
@@ -417,27 +410,22 @@ for pid in candidates:
     info, status = parse_product(pid, url, resp)
     if not info:
         report.append([NOW, sku, 'new', status, '', url or '', ''])
-        seen_new.add(sku)  # avoid hammering rejected marketplace items every hour
+        seen_new.add(sku)
         continue
-    image = host_jpg(pid, info['image'])
-    if not image:
-        report.append([NOW, sku, 'new', 'image_failed', '', url or '', info['image']])
-        continue
+    image = host_jpg(pid, info.get('image', ''))
     row = build_new_row(fields, info, image)
     new_rows.append(row)
     master_rows.append(row)
     existing_skus.add(sku)
     seen_new.add(sku)
-    report.append([NOW, sku, 'new', 'added', info['category'], url, image])
-    print(f'ADDED {len(new_rows)}/{MAX_NEW}: {sku} - {info["name"][:70]}', flush=True)
+    final_status = 'added' if image else 'added_without_image'
+    report.append([NOW, sku, 'new', final_status, info['category'], url, image or info.get('image', '')])
+    print(f'ADDED {len(new_rows)}/{MAX_NEW}: {sku} - {info["name"][:70]} | image={"yes" if image else "no"}', flush=True)
     time.sleep(REQUEST_DELAY)
 
 state['seen_new'] = sorted(seen_new)
 save_state(state)
 
-# -----------------------------
-# OUTPUTS
-# -----------------------------
 write_csv(MASTER, fields, master_rows)
 write_csv(NEW_OUT, fields, new_rows)
 write_csv(UPDATE_OUT, fields, updated_rows)
@@ -456,6 +444,7 @@ summary = {
     'existing_audited_this_run': len(batch),
     'existing_updated_this_run': len(updated_rows),
     'new_products_this_run': len(new_rows),
+    'new_products_without_image': sum(1 for r in new_rows if not (r.get('Image 1') or '').strip()),
     'marketplace_policy': 'reject unless seller/page explicitly identifies Leroy Merlin',
     'safety': 'preserves SumUp item/variant IDs, barcode, inventory and user settings on existing rows'
 }
