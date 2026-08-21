@@ -14,15 +14,10 @@ RULES = [
     ('Maçonnerie', ['ciment','beton','béton','mortier','treillis','ragréage']),
     ('Fixation / Visserie', ['vis ','cheville','scellement','tige filet']),
     ('Étanchéité', ['epdm','etanch','étanch','spec','pare pluie','pare vapeur']),
-    ('Bois / Panneaux', ['osb','tasseau','lambourde','madrier']),
-    ('Portail / Clôture', ['portail','cloture','clôture','motorisation']),
+    ('Bois / Panneaux', ['osb','tasseau','lambourde','madrier','contreplaqué']),
+    ('Portail / Clôture', ['portail','portillon','cloture','clôture','motorisation']),
     ('Terrasse', ['terrasse','lame composite']),
     ('Chauffage', ['radiateur','thermostatique']),
-]
-
-PRICE_FIELDS = [
-    'Price', 'Cost price', 'Tax rate (%)', 'Regular price (before sale)',
-    'Takeaway price', 'Takeaway tax rate'
 ]
 
 def ref_from(row):
@@ -30,52 +25,69 @@ def ref_from(row):
     m = re.search(r'(\d{8})$', sku)
     return m.group(1) if m else ''
 
-def category(name):
+def trade_category(name):
     t = name.lower()
     for cat, words in RULES:
         if any(w in t for w in words):
             return cat
-    return 'Leroy Merlin'
+    return 'Autres'
 
 def clean_name(name, ref):
     name = re.sub(r'\s+', ' ', name or '').strip()
     name = re.sub(r'\s+[–-]\s+Réf\.\s*\d{8}\s*$', '', name, flags=re.I)
-    name = name[:150].rstrip(' -–|')
+    # Les premiers mots restent les plus utiles dans la recherche SumUp.
+    name = name[:135].rstrip(' -–|')
     return f'{name} – Réf. {ref}' if ref else name
 
 def process(path):
     if not path.exists():
         return
     with path.open('r', encoding='utf-8-sig', newline='') as f:
-        r = csv.DictReader(f)
-        fields = r.fieldnames or []
-        rows = list(r)
+        reader = csv.DictReader(f)
+        fields = reader.fieldnames or []
+        rows = list(reader)
+
+    seen = set()
+    clean_rows = []
     for row in rows:
         ref = ref_from(row)
-        if not ref:
+        if not ref or ref in seen:
             continue
-        row['Item name'] = clean_name(row.get('Item name',''), ref)
+        seen.add(ref)
+
+        row['Item name'] = clean_name(row.get('Item name', ''), ref)
         if 'SKU' in row:
             row['SKU'] = f'LM-{ref}'
         if 'Category' in row:
-            row['Category'] = category(row['Item name'])
+            row['Category'] = f'Fournitures client - {trade_category(row["Item name"])}'
         if DESC in row:
             row[DESC] = f'À fournir par le client - Leroy Merlin - Réf. {ref}'
-        for field in PRICE_FIELDS:
+
+        # Article de repérage : un clic l'ajoute au devis sans demander un prix.
+        if 'Price' in row:
+            row['Price'] = '0.00'
+        if 'Cost price' in row:
+            row['Cost price'] = ''
+        if 'Variable price? (Yes/No)' in row:
+            row['Variable price? (Yes/No)'] = 'No'
+        if 'Tax rate (%)' in row:
+            row['Tax rate (%)'] = ''
+        for field in ('Regular price (before sale)', 'Takeaway price', 'Takeaway tax rate'):
             if field in row:
                 row[field] = ''
-        if 'Variable price? (Yes/No)' in row:
-            row['Variable price? (Yes/No)'] = 'Yes'
         if 'Track inventory? (Yes/No)' in row:
             row['Track inventory? (Yes/No)'] = 'No'
         if 'Display item at Checkout? (Yes/No)' in row:
             row['Display item at Checkout? (Yes/No)'] = 'Yes'
         if 'Display item in Online Store? (Yes/No)' in row:
             row['Display item in Online Store? (Yes/No)'] = 'No'
+        clean_rows.append(row)
+
     with path.open('w', encoding='utf-8-sig', newline='') as f:
-        w = csv.DictWriter(f, fieldnames=fields)
-        w.writeheader(); w.writerows(rows)
-    print(path, len(rows), 'articles optimisés pour devis')
+        writer = csv.DictWriter(f, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(clean_rows)
+    print(path, len(clean_rows), 'articles Leroy optimisés pour devis en un clic')
 
 for p in FILES:
     process(p)
