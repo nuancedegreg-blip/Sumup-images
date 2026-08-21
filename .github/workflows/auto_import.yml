@@ -1,15 +1,8 @@
 name: SumUp catalog automation
 
+# Audit lent temporairement mis en pause.
+# Le workflow reste disponible manuellement pour la reprise des ajouts futurs.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'auto_import.py'
-      - 'sumup_devis_mode.py'
-      - 'build_services_catalog.py'
-      - '.github/workflows/auto_import.yml'
-  schedule:
-    - cron: '15,45 * * * *'
   workflow_dispatch:
 
 concurrency:
@@ -24,8 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      # MODE RATTRAPAGE TEMPORAIRE : priorité aux ~1400 articles existants.
-      # Les nouveaux produits seront réactivés une fois ce nettoyage terminé.
       MAX_NEW: '0'
       AUDIT_EXISTING: '300'
       REQUEST_DELAY: '0.01'
@@ -33,36 +24,20 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
       - name: Install dependencies
         run: pip install requests beautifulsoup4
-
-      - name: Enable fast network mode
-        run: |
-          sed -i "s/def get(url, timeout=35, accept_image=False):/def get(url, timeout=8, accept_image=False):/" auto_import.py
-          sed -i "s/for attempt in range(4):/for attempt in range(2):/" auto_import.py
-          sed -i "s/time.sleep(0.8 \* (attempt + 1))/time.sleep(0.2 * (attempt + 1))/" auto_import.py
-          sed -i "s/get(image_url, timeout=45, accept_image=True)/get(image_url, timeout=10, accept_image=True)/" auto_import.py
-          sed -i "s/], check=True, timeout=90)/], check=True, timeout=30)/" auto_import.py
-          echo 'FAST MODE: HTTP 8s x2, image 10s, ffmpeg 30s'
-
-      - name: Audit and enrich existing Leroy Merlin products
+      - name: Audit existing Leroy Merlin products
         run: python auto_import.py
-
       - name: Optimize Leroy products for quote search
         run: python sumup_devis_mode.py
-
       - name: Build artisan services catalog
         run: python build_services_catalog.py
-
       - name: Commit SumUp outputs
         run: |
           git config user.name 'github-actions[bot]'
@@ -75,5 +50,3 @@ jobs:
             git pull --rebase origin main
             git push
           fi
-
-# manual trigger 2026-08-21 18:38 Canary time
