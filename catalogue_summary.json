@@ -1,10 +1,10 @@
 {
-  "timestamp_utc": "2026-08-21T16:11:57+00:00",
+  "timestamp_utc": "2026-08-21T16:55:54+00:00",
   "source_catalog": "Cat1.csv",
   "source_rows": 1401,
   "duplicates_removed": 0,
   "master_rows": 1401,
-  "existing_audited_this_run": 150,
+  "existing_audited_this_run": 300,
   "existing_updated_this_run": 0,
   "new_products_this_run": 0,
   "new_products_without_image": 0,
