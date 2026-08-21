@@ -1,18 +1,16 @@
-name: Recover SumUp images V7 browser
+name: Recover SumUp images V8 digits-only
 
 on:
   push:
     branches: [main]
     paths:
-      - 'repair_browser_v7.py'
+      - 'repair_browser_v8_digits.py'
       - '.github/workflows/convert.yml'
   workflow_dispatch:
-  schedule:
-    - cron: '*/15 * * * *'
 
 concurrency:
-  group: sumup-v7-browser
-  cancel-in-progress: false
+  group: sumup-v8-digits-only
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -20,10 +18,9 @@ permissions:
 jobs:
   recover:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
     env:
-      V7_BATCH: '120'
-      V7_MAX_ATTEMPTS: '2'
+      V8_BATCH: '10'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,17 +34,17 @@ jobs:
           pip install playwright
           playwright install --with-deps chromium
           sudo apt-get update && sudo apt-get install -y ffmpeg
-      - name: Search Leroy by exact reference in a real browser
-        run: python repair_browser_v7.py
-      - name: Commit verified V7 images and updated catalog
+      - name: Search Leroy with digits-only references
+        run: python repair_browser_v8_digits.py
+      - name: Commit V8 test results
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add images_v7 Cat1_SumUp_FINAL.csv Catalogue_Maitre_SumUp.csv repair_v7_report.csv repair_v7_state.json
+          git add images_v8 Cat1_SumUp_FINAL.csv Catalogue_Maitre_SumUp.csv repair_v8_report.csv
           if git diff --cached --quiet; then
             echo 'No changes to commit'
           else
-            git commit -m 'Recover verified SumUp images V7 from Leroy browser search'
+            git commit -m 'V8 test: search Leroy using digits-only references'
             git pull --rebase origin main
             git push
           fi
