@@ -20,8 +20,8 @@ RULES = [
     ('Chauffage', ['radiateur','thermostatique']),
 ]
 
-PRICE_TAX_FIELDS = [
-    'Price', 'Cost price', 'Tax rate (%)', 'Regular price (before sale)',
+CLEAR_FIELDS = [
+    'Cost price', 'Tax rate (%)', 'Regular price (before sale)',
     'Takeaway price', 'Takeaway tax rate'
 ]
 
@@ -67,8 +67,11 @@ def process(path):
         if DESC in row:
             row[DESC] = f'À fournir par le client - Leroy Merlin - Réf. {ref}'
 
-        # Fourniture client : aucune valeur commerciale dans SumUp.
-        for field in PRICE_TAX_FIELDS:
+        # SumUp exige un prix pour créer un article. 0,00 € permet de l'utiliser
+        # uniquement comme ligne de fourniture client, sans valeur commerciale ni TVA.
+        if 'Price' in row:
+            row['Price'] = '0.00'
+        for field in CLEAR_FIELDS:
             if field in row:
                 row[field] = ''
         if 'Variable price? (Yes/No)' in row:
@@ -85,7 +88,7 @@ def process(path):
         writer = csv.DictWriter(f, fieldnames=fields)
         writer.writeheader()
         writer.writerows(clean_rows)
-    print(path, len(clean_rows), 'articles Leroy sans prix ni TVA, prêts pour les devis')
+    print(path, len(clean_rows), 'articles Leroy à 0,00 €, sans TVA, optimisés pour les devis')
 
 for p in FILES:
     process(p)
