@@ -24,9 +24,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      MAX_NEW: '200'
-      AUDIT_EXISTING: '75'
-      REQUEST_DELAY: '0.05'
+      # MODE RATTRAPAGE TEMPORAIRE : priorité aux ~1400 articles existants.
+      # Les nouveaux produits seront réactivés une fois ce nettoyage terminé.
+      MAX_NEW: '0'
+      AUDIT_EXISTING: '200'
+      REQUEST_DELAY: '0.03'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -43,7 +45,7 @@ jobs:
       - name: Install dependencies
         run: pip install requests beautifulsoup4
 
-      - name: Find and enrich Leroy Merlin products
+      - name: Audit and enrich existing Leroy Merlin products
         run: python auto_import.py
 
       - name: Optimize Leroy products for quote search
