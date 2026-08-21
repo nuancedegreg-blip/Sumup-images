@@ -1,4 +1,4 @@
-name: Convert SumUp images
+name: Convert SumUp images TURBO
 
 on:
   push:
@@ -9,13 +9,20 @@ on:
       - '.github/workflows/convert.yml'
   workflow_dispatch:
 
+concurrency:
+  group: sumup-turbo-existing-catalog
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
 jobs:
   convert:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 45
+    env:
+      IMAGE_WORKERS: '24'
+      IMAGE_TIMEOUT: '10'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,17 +39,18 @@ jobs:
       - name: Install Python deps
         run: pip install requests
 
-      - name: Convert and host images
+      - name: Turbo convert existing 1400 images in parallel
         run: python convert_sumup.py
 
-      - name: Commit results
+      - name: Commit ready SumUp catalog
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add images Cat1_SumUp_FINAL.csv conversion_report.csv
+          git add images Cat1_SumUp_FINAL.csv Catalogue_Maitre_SumUp.csv conversion_report.csv
           if git diff --cached --quiet; then
             echo 'No changes to commit'
           else
-            git commit -m 'Generate SumUp JPEG images and final CSV'
+            git commit -m 'Turbo generate existing SumUp catalog with JPEG images'
+            git pull --rebase origin main
             git push
           fi
