@@ -1,5 +1,5 @@
 {
-  "timestamp_utc": "2026-08-21T15:09:56+00:00",
+  "timestamp_utc": "2026-08-21T16:11:57+00:00",
   "source_catalog": "Cat1.csv",
   "source_rows": 1401,
   "duplicates_removed": 0,
@@ -7,6 +7,7 @@
   "existing_audited_this_run": 150,
   "existing_updated_this_run": 0,
   "new_products_this_run": 0,
+  "new_products_without_image": 0,
   "marketplace_policy": "reject unless seller/page explicitly identifies Leroy Merlin",
   "safety": "preserves SumUp item/variant IDs, barcode, inventory and user settings on existing rows"
 }
