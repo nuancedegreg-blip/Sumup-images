@@ -9,7 +9,7 @@ on:
       - 'build_services_catalog.py'
       - '.github/workflows/auto_import.yml'
   schedule:
-    - cron: '15 * * * *'
+    - cron: '15,45 * * * *'
   workflow_dispatch:
 
 concurrency:
@@ -22,11 +22,11 @@ permissions:
 jobs:
   catalog:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 60
     env:
-      MAX_NEW: '500'
-      AUDIT_EXISTING: '150'
-      REQUEST_DELAY: '0.15'
+      MAX_NEW: '200'
+      AUDIT_EXISTING: '75'
+      REQUEST_DELAY: '0.05'
     steps:
       - uses: actions/checkout@v4
         with:
