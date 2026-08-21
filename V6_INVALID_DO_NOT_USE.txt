@@ -1,0 +1,1 @@
+V6 image-search results were invalid: public image search returned unrelated images. Catalogue restored to the pre-V6 state. Do not use images_v6 or repair_v6_report.csv as product imagery.
