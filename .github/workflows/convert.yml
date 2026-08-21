@@ -1,27 +1,26 @@
-name: Rebuild SumUp catalog V3
+name: Repair SumUp images V4
 
 on:
   push:
     branches: [main]
     paths:
-      - 'Cat1.csv'
-      - 'convert_sumup.py'
+      - 'repair_from_pages_v4.py'
       - '.github/workflows/convert.yml'
   workflow_dispatch:
 
 concurrency:
-  group: sumup-rebuild-v3
+  group: sumup-repair-v4
   cancel-in-progress: true
 
 permissions:
   contents: write
 
 jobs:
-  rebuild:
+  repair:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      IMAGE_WORKERS: '20'
+      IMAGE_WORKERS: '16'
       IMAGE_TIMEOUT: '12'
     steps:
       - uses: actions/checkout@v4
@@ -35,17 +34,17 @@ jobs:
           python-version: '3.12'
       - name: Install Python deps
         run: pip install requests
-      - name: Rebuild clean catalog from Leroy sitemap
-        run: python convert_sumup.py
-      - name: Commit V3 images and rebuilt catalog
+      - name: Extract images from already known Leroy product pages
+        run: python repair_from_pages_v4.py
+      - name: Commit V4 repaired images and catalog
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add images_v3 Cat1_SumUp_FINAL.csv Catalogue_Maitre_SumUp.csv rebuild_report.csv
+          git add images_v3 Cat1_SumUp_FINAL.csv Catalogue_Maitre_SumUp.csv repair_v4_report.csv
           if git diff --cached --quiet; then
             echo 'No changes to commit'
           else
-            git commit -m 'Rebuild clean SumUp catalog V3 with stable JPG images'
+            git commit -m 'Repair SumUp images V4 from known product pages'
             git pull --rebase origin main
             git push
           fi
