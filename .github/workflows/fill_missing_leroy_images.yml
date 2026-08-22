@@ -1,12 +1,12 @@
 name: Fill all missing Leroy images
 
-# browser pass: render Leroy exactly like Chrome and read carousel DOM
+# browser2: wait for rendered Leroy result + rendered Bing exact-reference fallback
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - fill_missing_leroy_images_browser.py
+      - fill_missing_leroy_images_browser2.py
       - .github/workflows/fill_missing_leroy_images.yml
 
 concurrency:
@@ -35,16 +35,16 @@ jobs:
           pip install requests playwright
           playwright install --with-deps chromium
       - name: Verify next batch in rendered Leroy pages
-        run: python fill_missing_leroy_images_browser.py
+        run: python fill_missing_leroy_images_browser2.py
       - name: Commit verified image results and progress
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add Catalogue_Maitre_SumUp.csv Cat1_SumUp_FINAL.csv verified_image_map.csv verified_leroy_images.csv verified_leroy_images_audit.csv verified_leroy_images_state_browser.json
+          git add Catalogue_Maitre_SumUp.csv Cat1_SumUp_FINAL.csv verified_image_map.csv verified_leroy_images.csv verified_leroy_images_audit.csv verified_leroy_images_state_browser2.json
           if git diff --cached --quiet; then
             echo 'No changes to commit'
           else
-            git commit -m 'Process browser-rendered Leroy image batch'
+            git commit -m 'Process slower browser Leroy image batch'
             git pull --rebase origin main
             git push origin main
           fi
