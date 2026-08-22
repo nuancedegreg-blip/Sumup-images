@@ -1,9 +1,14 @@
 name: SumUp catalog automation
 
-# Audit lent temporairement mis en pause.
-# Le workflow reste disponible manuellement pour la reprise des ajouts futurs.
+# Lancement ponctuel d'un lot de 500 références.
+# Le déclencheur push est limité à ce fichier pour éviter toute boucle après le commit automatique du catalogue.
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/auto_import.yml'
 
 concurrency:
   group: sumup-master-catalog
@@ -18,7 +23,7 @@ jobs:
     timeout-minutes: 45
     env:
       MAX_NEW: '0'
-      AUDIT_EXISTING: '300'
+      AUDIT_EXISTING: '500'
       REQUEST_DELAY: '0.01'
     steps:
       - uses: actions/checkout@v4
