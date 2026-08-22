@@ -1,0 +1,43 @@
+name: Apply manually verified Leroy images
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - verified_image_map.csv
+      - .github/workflows/apply_manual_verified_images.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-manual-verified-leroy-images
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Sync verified list and inject images
+        run: |
+          cp verified_image_map.csv verified_leroy_images.csv
+          python apply_verified_images.py
+      - name: Commit catalogue updates
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add verified_leroy_images.csv Catalogue_Maitre_SumUp.csv Cat1_SumUp_FINAL.csv
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+          else
+            git commit -m 'Apply manually verified Leroy images'
+            git pull --rebase origin main
+            git push origin main
+          fi
