@@ -297,3 +297,5 @@ print(json.dumps({
     'remaining_unprocessed': remaining_unprocessed,
     'catalogue_finished': completed,
 }, ensure_ascii=False), flush=True)
+
+# batch trigger 2026-08-22T13:23 Atlantic/Canary
