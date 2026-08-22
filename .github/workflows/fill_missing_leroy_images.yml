@@ -1,5 +1,6 @@
 name: Fill all missing Leroy images
 
+# batch trigger 2026-08-22T01:21 Atlantic/Canary
 on:
   workflow_dispatch:
   push:
