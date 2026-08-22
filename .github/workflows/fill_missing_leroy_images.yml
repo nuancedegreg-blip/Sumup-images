@@ -1,12 +1,12 @@
 name: Fill all missing Leroy images
 
-# browser2: wait for rendered Leroy result + rendered Bing exact-reference fallback
+# browser3: reproduce manual Leroy search using only the 8-digit reference
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - fill_missing_leroy_images_browser2.py
+      - fill_missing_leroy_images_browser3.py
       - .github/workflows/fill_missing_leroy_images.yml
 
 concurrency:
@@ -34,17 +34,17 @@ jobs:
         run: |
           pip install requests playwright
           playwright install --with-deps chromium
-      - name: Verify next batch in rendered Leroy pages
-        run: python fill_missing_leroy_images_browser2.py
+      - name: Verify next batch by typing only numeric Leroy references
+        run: python fill_missing_leroy_images_browser3.py
       - name: Commit verified image results and progress
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add Catalogue_Maitre_SumUp.csv Cat1_SumUp_FINAL.csv verified_image_map.csv verified_leroy_images.csv verified_leroy_images_audit.csv verified_leroy_images_state_browser2.json
+          git add Catalogue_Maitre_SumUp.csv Cat1_SumUp_FINAL.csv verified_image_map.csv verified_leroy_images.csv verified_leroy_images_audit.csv verified_leroy_images_state_browser3.json
           if git diff --cached --quiet; then
             echo 'No changes to commit'
           else
-            git commit -m 'Process slower browser Leroy image batch'
+            git commit -m 'Process numeric Leroy reference image batch'
             git pull --rebase origin main
             git push origin main
           fi
