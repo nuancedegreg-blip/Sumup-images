@@ -1,14 +1,12 @@
 name: Fill all missing Leroy images
 
-# pass4: exact Leroy product URL via web-search fallback
+# browser pass: render Leroy exactly like Chrome and read carousel DOM
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - fill_missing_leroy_images.py
-      - fill_missing_leroy_images_pass3.py
-      - fill_missing_leroy_images_search_fallback.py
+      - fill_missing_leroy_images_browser.py
       - .github/workflows/fill_missing_leroy_images.yml
 
 concurrency:
@@ -23,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      REQUEST_DELAY: '0.15'
+      REQUEST_DELAY: '0.10'
       BATCH_SIZE: '100'
     steps:
       - uses: actions/checkout@v4
@@ -33,19 +31,20 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install dependencies
-        run: pip install requests beautifulsoup4
-      - name: Verify next batch by exact reference with search fallback
-        run: python fill_missing_leroy_images_search_fallback.py
+        run: |
+          pip install requests playwright
+          playwright install --with-deps chromium
+      - name: Verify next batch in rendered Leroy pages
+        run: python fill_missing_leroy_images_browser.py
       - name: Commit verified image results and progress
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add Catalogue_Maitre_SumUp.csv Cat1_SumUp_FINAL.csv verified_image_map.csv verified_leroy_images.csv verified_leroy_images_audit.csv
-          if [ -f verified_leroy_images_state_pass3.json ]; then git add verified_leroy_images_state_pass3.json; fi
+          git add Catalogue_Maitre_SumUp.csv Cat1_SumUp_FINAL.csv verified_image_map.csv verified_leroy_images.csv verified_leroy_images_audit.csv verified_leroy_images_state_browser.json
           if git diff --cached --quiet; then
             echo 'No changes to commit'
           else
-            git commit -m 'Process external-search Leroy image batch'
+            git commit -m 'Process browser-rendered Leroy image batch'
             git pull --rebase origin main
             git push origin main
           fi
