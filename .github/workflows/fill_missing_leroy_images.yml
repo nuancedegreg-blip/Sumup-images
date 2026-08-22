@@ -1,12 +1,13 @@
 name: Fill all missing Leroy images
 
-# second-pass setup 2026-08-22: exact Leroy search by reference
+# pass3: exact-reference lookup + ADEO image extraction
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
       - fill_missing_leroy_images.py
+      - fill_missing_leroy_images_pass3.py
       - .github/workflows/fill_missing_leroy_images.yml
 
 concurrency:
@@ -21,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      REQUEST_DELAY: '0.05'
+      REQUEST_DELAY: '0.08'
       BATCH_SIZE: '100'
     steps:
       - uses: actions/checkout@v4
@@ -32,18 +33,18 @@ jobs:
           python-version: '3.12'
       - name: Install dependencies
         run: pip install requests beautifulsoup4
-      - name: Verify next batch of blank Leroy references
-        run: python fill_missing_leroy_images.py
+      - name: Verify next batch by exact reference
+        run: python fill_missing_leroy_images_pass3.py
       - name: Commit verified image results and progress
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add Catalogue_Maitre_SumUp.csv Cat1_SumUp_FINAL.csv verified_image_map.csv verified_leroy_images.csv verified_leroy_images_audit.csv verified_leroy_images_state.json
-          if [ -f verified_leroy_images_state_pass2.json ]; then git add verified_leroy_images_state_pass2.json; fi
+          git add Catalogue_Maitre_SumUp.csv Cat1_SumUp_FINAL.csv verified_image_map.csv verified_leroy_images.csv verified_leroy_images_audit.csv
+          if [ -f verified_leroy_images_state_pass3.json ]; then git add verified_leroy_images_state_pass3.json; fi
           if git diff --cached --quiet; then
             echo 'No changes to commit'
           else
-            git commit -m 'Process next verified Leroy image batch'
+            git commit -m 'Process robust Leroy image batch'
             git pull --rebase origin main
             git push origin main
           fi
