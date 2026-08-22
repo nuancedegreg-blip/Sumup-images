@@ -1,6 +1,6 @@
 name: Fill all missing Leroy images
 
-# pass3: exact-reference lookup + ADEO image extraction
+# pass4: exact Leroy product URL via web-search fallback
 on:
   workflow_dispatch:
   push:
@@ -8,6 +8,7 @@ on:
     paths:
       - fill_missing_leroy_images.py
       - fill_missing_leroy_images_pass3.py
+      - fill_missing_leroy_images_search_fallback.py
       - .github/workflows/fill_missing_leroy_images.yml
 
 concurrency:
@@ -22,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      REQUEST_DELAY: '0.08'
+      REQUEST_DELAY: '0.15'
       BATCH_SIZE: '100'
     steps:
       - uses: actions/checkout@v4
@@ -33,8 +34,8 @@ jobs:
           python-version: '3.12'
       - name: Install dependencies
         run: pip install requests beautifulsoup4
-      - name: Verify next batch by exact reference
-        run: python fill_missing_leroy_images_pass3.py
+      - name: Verify next batch by exact reference with search fallback
+        run: python fill_missing_leroy_images_search_fallback.py
       - name: Commit verified image results and progress
         run: |
           git config user.name 'github-actions[bot]'
@@ -44,7 +45,7 @@ jobs:
           if git diff --cached --quiet; then
             echo 'No changes to commit'
           else
-            git commit -m 'Process robust Leroy image batch'
+            git commit -m 'Process external-search Leroy image batch'
             git pull --rebase origin main
             git push origin main
           fi
