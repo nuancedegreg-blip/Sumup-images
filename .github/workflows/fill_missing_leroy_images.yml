@@ -1,12 +1,12 @@
 name: Fill all missing Leroy images
 
-# browser5: web-search exact Leroy product URL from numeric reference
+# browser6: exact web-search product URL + rendered Chrome currentSrc
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - fill_missing_leroy_images_browser5.py
+      - fill_missing_leroy_images_browser6.py
       - .github/workflows/fill_missing_leroy_images.yml
 
 concurrency:
@@ -32,19 +32,19 @@ jobs:
           python-version: '3.12'
       - name: Install dependencies
         run: |
-          pip install requests playwright
+          pip install playwright
           playwright install --with-deps chromium
-      - name: Verify next batch with exact web-search Leroy product URLs
-        run: python fill_missing_leroy_images_browser5.py
+      - name: Verify next batch from rendered Leroy product images
+        run: python fill_missing_leroy_images_browser6.py
       - name: Commit verified image results and progress
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add Catalogue_Maitre_SumUp.csv Cat1_SumUp_FINAL.csv verified_image_map.csv verified_leroy_images.csv verified_leroy_images_audit.csv verified_leroy_images_state_browser5.json
+          git add Catalogue_Maitre_SumUp.csv Cat1_SumUp_FINAL.csv verified_image_map.csv verified_leroy_images.csv verified_leroy_images_audit.csv verified_leroy_images_state_browser6.json
           if git diff --cached --quiet; then
             echo 'No changes to commit'
           else
-            git commit -m 'Process web-search Leroy image batch'
+            git commit -m 'Process rendered Leroy image batch'
             git pull --rebase origin main
             git push origin main
           fi
